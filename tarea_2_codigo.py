@@ -296,6 +296,7 @@ while num != 0:
         Punto_2_diagrama()  
     elif num == 3: 
         print ("Codificacion LZ78.")
+        print ("modificacion en git ")
     elif num == 4: 
         print ("Codificacion LZW.")
 
