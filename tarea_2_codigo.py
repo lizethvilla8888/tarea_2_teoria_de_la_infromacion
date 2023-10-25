@@ -93,10 +93,56 @@ def calcular_longitud_texto(texto):
     # Función para calcular la longitud del texto en bits
     return len(''.join(format(ord(char), '08b') for char in texto))
 
+def calculo_de_probabilidad_simbolos(texto, tabla_codificacion):
+    probabilidad_simbolos = {}
+    total_simbolos = len(texto)
+    print ("texto que esta resiviendo caluclo de probabiidad: \n \n \n  ")
+    print(texto)
+    for simbolo, codigo in tabla_codificacion.items():
+        frecuencia = texto.count(simbolo)
+        probabilidad = frecuencia / total_simbolos
+        probabilidad_simbolos[simbolo] = probabilidad
+
+    return probabilidad_simbolos
+
+def Informacion_cd_simbolo(probabilidad_simbolos):
+    informacion_simbolos = {}
+    
+    for simbolo, probabilidad in probabilidad_simbolos.items():
+        informacion = math.log2(1 / probabilidad)
+        informacion_simbolos[simbolo] = informacion
+    
+    return informacion_simbolos
+
+def entropia_cd_simbolo(informacion_simbolos, probabilidad_cd_simbolo):
+    entropias_por_simbolo = {}
+    suma_entropias = 0.0
+    
+    for simbolo in informacion_simbolos:
+        entropia = informacion_simbolos[simbolo] * probabilidad_cd_simbolo[simbolo]
+        entropias_por_simbolo[simbolo] = entropia
+        suma_entropias += entropia
+    
+    return suma_entropias
+
+def longitud_promedio_cd_codigo(tabla_codificacion, probabilidad_simbolos):
+    sumas_por_simbolo = {}
+    suma_longitudes = 0.0
+    
+    for simbolo, codigo in tabla_codificacion.items():
+        probabilidad = probabilidad_simbolos.get(simbolo, 0)  # Obtiene la probabilidad del símbolo o 0 si no se encuentra
+        longitud = len(codigo)
+        pxl = probabilidad * longitud
+        sumas_por_simbolo[simbolo] = pxl
+        suma_longitudes += pxl
+    
+    return  suma_longitudes
+
 def punto_1_huffman():
     print("Codificacion Huffman ") 
     if __name__ == '__main__':
-       texto = leer_archivo()
+       #texto = leer_archivo()
+       texto = "aaaaaaaeii"
 
        #numero de veces que se repiten los caracteres individuales en el texto 
        frecuencias = dict(Counter(texto)) 
@@ -117,24 +163,19 @@ def punto_1_huffman():
     # Codificar el texto original
     texto_codificado = codificar_texto(texto_original, tabla_codificacion)
 
-     # Calcula la longitud del texto comprimido en bits
-    longitud_comprimida = len(texto_codificado)
-
-    # Calcula la eficiencia
-    eficiencia = longitud_original / longitud_comprimida
-
-     # Calcula la redundancia
+    # Llama a la función con el texto y la tabla de codificación
+    tabla_codificacion = construir_tabla_codificacion(arbol_huffman)
+    probabilidades = calculo_de_probabilidad_simbolos(texto_original, tabla_codificacion)
+    informacion_simbolos = Informacion_cd_simbolo(probabilidades)
+    entropia = entropia_cd_simbolo(informacion_simbolos,probabilidades)
+    longitud_promedio = longitud_promedio_cd_codigo(tabla_codificacion, probabilidades)
+    eficiencia =  entropia / longitud_promedio
     redundancia = 1 - eficiencia
-
-     # Calcula la tasa de compresión
-    tasa_compresion = ((longitud_original - longitud_comprimida) / longitud_original) * 100
-
-    print("Longitud del texto original en bits:", longitud_original)
-    print("Longitud del texto comprimido en bits:", longitud_comprimida)
+    tasa_compresion = (len(texto)*8)/(len(texto_codificado))
+    
     print("Eficiencia:", eficiencia)
     print("Redundancia:", redundancia)
     print("Tasa de compresión:", tasa_compresion, "%","\n \n ")
-
 
 #__________________________________________________________________________________________________________________________
 #punto 2  digrama
@@ -237,6 +278,8 @@ def decodificar_codigo(codigo_texto, tabla_codificacion):
             return "Error: No se pudo decodificar el código."
 
     return texto_decodificado
+
+
 
 def Punto_2_diagrama():
     texto_original = leer_archivo()
