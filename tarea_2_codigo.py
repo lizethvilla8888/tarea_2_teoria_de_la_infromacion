@@ -209,9 +209,8 @@ def contar_bits_necesarios(numero):
 
     return bits
 
-
 # Función para generar la tabla de codificación
-def tabla_de_codificacion(texto, longitud_binarios):
+def tabla_de_codificacion(texto):
     bigramas = contar_bigramas(texto)
 
     # Filtrar bigramas con más de una aparición y contar letras individuales
@@ -283,9 +282,8 @@ def decodificar_codigo(codigo_texto, tabla_codificacion):
 
 def Punto_2_diagrama():
     texto_original = leer_archivo()
-    bits = int(input("Ingrese la longitud de los binarios: "))
 
-    tabla_codificacion = tabla_de_codificacion(texto_original, bits)
+    tabla_codificacion = tabla_de_codificacion(texto_original)
     codigo = texto_codificado(texto_original, tabla_codificacion)
     texto_decodificado = decodificar_codigo(codigo, tabla_codificacion)
 
@@ -294,31 +292,197 @@ def Punto_2_diagrama():
     print("\nTabla de Codificación:")
     for simbolo, binario in tabla_codificacion.items():
         print(f"{simbolo}:\t{binario}")
+
     print("\nTexto codificado:")
     print(codigo)
     print("\nTexto decodificado:")
     print(texto_decodificado)
 
-    longitud_texto = len(texto_original)
-    print("longitud:",longitud_texto)
+    probabilidades = calculo_de_probabilidad_simbolos(texto_original, tabla_codificacion)
+    informacion_simbolos = Informacion_cd_simbolo(probabilidades)
+    entropia = entropia_cd_simbolo(informacion_simbolos,probabilidades)
+    longitud_promedio = longitud_promedio_cd_codigo(tabla_codificacion, probabilidades)
+    eficiencia =  entropia / longitud_promedio
+    redundancia = 1 - eficiencia
+    tasa_compresion = (len(texto_original)*8)/(len(codigo))
+    
+    print("Eficiencia:", eficiencia)
+    print("Redundancia:", redundancia)
+    print("Tasa de compresión:", tasa_compresion, "%","\n \n ")
 
-    #para modificar el largo (numero de digitos) codigo binario modificar linea 177 modificar ># (10)  
-    # bigramas_filtrados = {bigrama: frecuencia for bigrama, frecuencia in bigramas.items() if frecuencia > 10}
-
-    # total bits bigrama = largo (numero de digitos) codigo binario * cantidad de bigramas de tabla de codificacion 
-    total_bits_bigrama = (len(texto_original)/2)*bits
-    print("total bits bigrama: ",total_bits_bigrama) # 222 
-
-    # total_bits_longitud_fija = logaritmo en base 2 (caracteres individuales)* largo (numero de digitos) codigo binario
-    cantidad_caracteres_texto = contar_caracteres_individuales 
-    cantidad_caracteres = len (cantidad_caracteres_texto)
-    total_bits_longitud_fija = math.log(cantidad_caracteres,2)*longitud_texto
-    print ("total bits longitud fija: ", total_bits_longitud_fija)  
-
-    #Rata de compresion = total_bits_longitud_fija/total_bits_bigrama
-    print("Rc:",total_bits_longitud_fija/total_bits_bigrama)
 
 #------------------------------------------------------------------------------------------------------------------------------
+# LZ78 
+def codificar_LZ78(texto):
+    diccionario = {}
+    resultado = []
+    buffer = ''
+    indice = 0
+
+    while indice < len(texto):
+        simbolo = texto[indice]
+        if buffer + simbolo in diccionario:
+            buffer += simbolo
+        else:
+            if buffer:
+                resultado.append((diccionario[buffer], simbolo))
+            else:
+                resultado.append(("", simbolo))
+            diccionario[buffer + simbolo] = len(diccionario) + 1
+            buffer = ''
+        indice += 1
+
+    codificacion_binaria = []
+
+    for (indice, simbolo) in resultado:
+        if indice == "":
+            binario = "0"
+        else:
+            binario = format(indice, 'b')
+        codificacion_binaria.append((binario, simbolo))
+
+    return codificacion_binaria, resultado
+def decodificar_LZ78(codificacion):
+    diccionario = {0: ''}
+    texto = ''
+    for (indice, simbolo) in codificacion:
+        if indice == "":
+            cadena = simbolo
+        else:
+            cadena = diccionario[int(indice, 2)] + simbolo
+        diccionario[len(diccionario)] = cadena
+        texto += cadena
+    return texto
+
+def punto_3_LZ78():
+    texto_original = leer_archivo()
+    codificacion_binaria, resultado = codificar_LZ78(texto_original)
+    texto_descodificaco = decodificar_LZ78(codificacion_binaria)
+    # Calcular la longitud promedio de la codificación
+    LongitudPromedio = sum(len(indice) for indice, _ in codificacion_binaria) / len(codificacion_binaria)
+
+    # Calcular la entropía
+    Letras = set(texto_original)
+    Entropia = -sum((texto_original.count(letra) / len(texto_original)) * math.log2(texto_original.count(letra) / len(texto_original) + 1e-10) for letra in Letras)
+
+    # Calcular la eficiencia y redundancia
+    Eficiencia = Entropia / LongitudPromedio
+    Redundancia = 1 - Eficiencia
+
+
+    # Calcular la tasa de compresión
+    BitsOriginales = len(texto_original) * 8  # Multiplicado por 8 para convertir a bits
+    BitsCompresion = sum(len(indice) + 8 for indice, _ in codificacion_binaria)  # Sumar 8 bits por cada símbolo
+    Rata = BitsOriginales / BitsCompresion
+
+    print("Texto original:", texto_original)
+    #print(codificacion_binaria)
+    texto_comprimido = ''.join([indice for indice, _ in codificacion_binaria])
+    print("Codificación LZ78 (en binario):", texto_comprimido)
+    print("Descodificacion del texto:", texto_descodificaco)
+    print("Eficiencia =", Eficiencia)
+    print("Redundancia =", Redundancia)
+    print("Rata de compresión =", Rata)
+
+#-----------------------------------------------------------------------------------------------------------------------------
+#lZW
+DiccionarioLZW = {}
+
+
+def ConvertirABinarioBase(Numero, BitsMaximos):
+    Binario=bin(int(Numero))
+    Binario=Binario[2:]
+    Binario="0"*(BitsMaximos-len(Binario))+Binario
+    return Binario
+
+def LetrasUnicas(texto):
+    Contador = 0
+    for letra in texto:
+        if letra not in DiccionarioLZW.keys():
+            DiccionarioLZW[letra] = Contador
+            Contador += 1
+
+def CodificacionLZW(Texto):
+    global DiccionarioLZW
+    LetrasUnicas(Texto)
+    temp=0
+    Salida=""
+    for PosicionLetra in range(len(Texto)-1):
+        Extra=2
+        if PosicionLetra+temp+Extra>len(Texto):
+            break
+
+        Concatenacion=Texto[PosicionLetra+temp:PosicionLetra+temp+Extra]
+        if Concatenacion in DiccionarioLZW.keys():
+            Conversion=str(DiccionarioLZW[Concatenacion])
+            Salida=Salida+ Conversion+":"
+        else:
+            SinUltimo=Concatenacion[:len(Concatenacion)-1]
+            Conversion=str(DiccionarioLZW[SinUltimo])
+            Salida=Salida+Conversion+":"
+        while Texto[PosicionLetra+temp:PosicionLetra+temp+Extra] in DiccionarioLZW.keys():
+            Extra+=1
+            if PosicionLetra+temp+Extra>=len(Texto):
+                break
+        if Concatenacion not in DiccionarioLZW.keys():
+            DiccionarioLZW[Texto[PosicionLetra+temp:PosicionLetra+temp+Extra]]=len(DiccionarioLZW)
+        temp+=Extra-2
+    
+    SalidaReal=""
+    Numero=len(DiccionarioLZW)
+    Salida=Salida[:len(Salida)-1]
+    ListaCodigo=Salida.split(":")
+    BitsMaximos=math.ceil(math.log2(Numero))
+
+    for Numero in ListaCodigo:
+        SalidaReal=SalidaReal+ConvertirABinarioBase(Numero, BitsMaximos)
+    MaximoEnBinario=bin(BitsMaximos)
+    MaximoEnBinario=MaximoEnBinario[2:]
+    MaximoEnBinario="0"*(4-len(MaximoEnBinario))+MaximoEnBinario
+    SalidaReal= MaximoEnBinario+SalidaReal
+    DiccionarioLZW={Valor: Llave for (Llave, Valor) in DiccionarioLZW.items()}
+    return SalidaReal
+
+def DecodificadorLZW(Codigo, DiccionarioLZW):
+    Particion=int(Codigo[:4],2)
+    ListaDeCodigos=[]
+    Texto=""
+    Codigo1=Codigo[4:]
+    while len(Codigo1)!=0:
+        ListaDeCodigos.append(Codigo1[:Particion])
+        Texto=Texto+DiccionarioLZW[int(Codigo1[:Particion],2)]
+        Codigo1=Codigo1[Particion:]
+    print(Texto)
+
+def DatosLZW(Diccionario, Texto, Codigo):
+    LongitudPromedio=int(Codigo[:4],2)
+    
+    #Calculo Entropia
+
+    Letras=[]
+    for Llave in Diccionario.keys():
+        if [Diccionario[Llave],Texto.count(Diccionario[Llave])] not in Letras:
+            if len(Diccionario[Llave])!=1:
+                Letras.append([Diccionario[Llave],Texto.count(Diccionario[Llave])])
+    Entropia=0
+    Tam=len(Texto)
+    for Par in Letras:
+        Probabilidad=(Par[1]/Tam)
+        Entropia+=Probabilidad*math.log2(1/Probabilidad)
+    Eficiencia=Entropia/LongitudPromedio
+    Redundancia=1-Eficiencia
+    Total=Eficiencia+Redundancia
+
+    #Ratio
+    BitsOriginales=Tam*8
+    BitsCompresion=len(Codigo)
+    Rata=BitsOriginales/BitsCompresion
+    print("La eficiencia de la compresión LZW fue de ", Eficiencia)
+    print("La redundancia por tanto fue de ", Redundancia)
+    print("La rata de compresión fue de ", Rata)
+
+
+#-------------------------------------------------------------------------------------------------------------------------------
 # menu
 num =5
 while num != 0:
@@ -334,14 +498,20 @@ while num != 0:
     num = int(input("Ingrese el número de la opción deseada: "))
   
     if num == 1:   
+        print ("Codificacion Huffman.\n")
         punto_1_huffman()
     elif num == 2: 
+        print ("Codificacion Digrama.\n")
         Punto_2_diagrama()  
     elif num == 3: 
-        print ("Codificacion LZ78.")
-        print ("modificacion en git ")
+        print ("Codificacion LZ78.\n")
+        punto_3_LZ78()
     elif num == 4: 
-        print ("Codificacion LZW.")
+        print ("Codificacion LZW.\n")
+        Texto2 = leer_archivo()
+        CodigoLZW = CodificacionLZW(Texto2[:])
+        DatosLZW(DiccionarioLZW,Texto2, CodigoLZW)
+
 
 
 
